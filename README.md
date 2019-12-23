@@ -65,7 +65,7 @@ of Wikipedia, for English or any other language, check out [WiToKit](https://git
 
 Once you have a Wikipedia txt dump, you can generate a gensim Word2Vec skipgram model via:
 ```bash
-n2v train \
+n2vconsistency train \
   --data /absolute/path/to/wikipedia/tokenized/text/dump \
   --outputdir /absolute/path/to/dir/where/to/store/w2v/model \
   --alpha 0.025 \
@@ -80,7 +80,7 @@ n2v train \
 ```
 and a gensim Word2Vec cbow model via:
 ```bash
-n2v train \
+n2vconsistency train \
   --data /absolute/path/to/wikipedia/tokenized/text/dump \
   --outputdir /absolute/path/to/dir/where/to/store/w2v/model \
   --alpha 0.025 \
@@ -96,7 +96,7 @@ n2v train \
 
 To check the correlation of your word2vec model(s) with the MEN dataset, run:
 ```bash
-n2v check-men \
+n2vconsistency check-men \
   ---model /absolute/path/to/gensim/w2v/model
 ```
 
@@ -105,7 +105,7 @@ Running Nonce2Vec on the definitional of chimeras datasets is done via the `n2v 
 
 You will find below a list of commands corresponding to the experiments reported in the SRW 2019 paper. For example, to test the SUM CWI model (a basic sum model with context-word-informativeness-based filtering), which provides a rather robust baseline on all datasets in incremental setup, run, for the definitional dataset:
 ```bash
-n2v test \
+n2vconsistency test \
   --on def \
   --model /absolute/path/to/gensim/w2v/skipgram/model \
   --info-model /absolute/path/to/gensim/w2v/cbow/model \
@@ -117,7 +117,7 @@ n2v test \
 To run the N2V CWI alpha model on the chimera L4 test set, with shuffling and in
 one-shot evaluation setup (which provides SOTA performance), do:
 ```bash
-n2v test \
+n2vconsistency test \
   --on l4 \
   --model /absolute/path/to/gensim/w2v/skipgram/model \
   --info-model /absolute/path/to/gensim/w2v/cbow/model \
@@ -134,7 +134,7 @@ n2v test \
 
 To test N2V as-is (the original N2V code without background freezing), in incremental setup on the definitional dataset, do:
 ```bash
-n2v test \
+n2vconsistency test \
   --on def \
   --model /absolute/path/to/gensim/w2v/skipgram/model \
   --sum-filter random \
@@ -151,7 +151,7 @@ n2v test \
 
 To test N2V CWI init (the original N2V with CWI-based sum initialization) on the definitional dataset in one-shot evaluation setup, do:
 ```bash
-n2v test \
+n2vconsistency test \
   --on def \
   --model /absolute/path/to/gensim/w2v/skipgram/model \
   --info-model /absolute/path/to/gensim/w2v/cbow/model \

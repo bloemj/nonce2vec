@@ -18,7 +18,11 @@ DATASETS = {
     'l4': os.path.join(os.path.dirname(os.path.dirname(__file__)),
                        'resources', 'chimeras.dataset.l4.tokenised.test.txt'),
     'l6': os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                       'resources', 'chimeras.dataset.l6.tokenised.test.txt')
+                       'resources', 'chimeras.dataset.l6.tokenised.test.txt'),
+    'quine1960': os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                       'resources', '1960_index_terms_randsplit_test_sentences_alpha_twochar.txt'),
+    'wiki-rnd': os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                       'resources', 'nonce_test_sampledsentences1.txt')
 }
 
 
@@ -43,7 +47,7 @@ class Samples():  # pylint:disable=R0903
     def __init__(self, source, shuffle, input_data=None):
         """Initialize instance."""
         logger.info('Loading {} samples...'.format(source))
-        if source not in ['wiki', 'men', 'def', 'l2', 'l4', 'l6']:
+        if source not in ['wiki', 'men', 'def', 'l2', 'l4', 'l6', 'quine1960', 'wiki-rnd']:
             raise Exception('Invalid source parameter \'{}\''.format(source))
         if source == 'wiki' and not input_data:
             raise Exception('You need to specify the input data when parsing '
@@ -94,6 +98,24 @@ class Samples():  # pylint:disable=R0903
                 responses = fields[3].split(',')
                 yield sentences, nonce, probes, responses
 
+    def _iterate_over_sentence_samples(self):
+        with open(DATASETS[self._source], 'rt') as input_stream:
+            for line in input_stream:
+                sentences = {}
+                fields = line.rstrip('\n').split('\t')
+                term = fields[0]
+                sample = 1
+                probes = []
+                for partsentences in fields[1:]:
+                    sentences[sample] = []
+                    for sent in partsentences.split('@@'):
+                        tokens = sent.strip().split(' ')
+                        if '___' in tokens:
+                            sentences[sample].append(tokens)
+                    probes.append('{}_p{}'.format(term,sample))
+                    sample += 1
+                yield sentences, term, probes
+
     def __iter__(self):
         """Iterate over items with generators."""
         if self._source == 'wiki':
@@ -102,4 +124,8 @@ class Samples():  # pylint:disable=R0903
             return self._iterate_over_men()
         if self._source == 'def':
             return self._iterate_over_definitions()
+        if self._source == 'quine1960':
+            return self._iterate_over_sentence_samples()
+        if self._source == 'wiki-rnd':
+            return self._iterate_over_sentence_samples()
         return self._iterate_over_chimeras()

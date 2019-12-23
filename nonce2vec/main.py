@@ -25,6 +25,11 @@ from nonce2vec.models.nonce2vec import Nonce2Vec, Nonce2VecVocab, \
 from nonce2vec.utils.files import Samples
 from nonce2vec.models.informativeness import Informativeness
 
+from numpy import dot
+from gensim import matutils
+
+import statistics
+
 
 logging.config.dictConfig(
     cutils.load(
@@ -159,6 +164,282 @@ def _test_on_chimeras(args):  # pylint:disable=R0914
                 rhos.append(rho)
     logger.info('AVERAGE RHO = {}'.format(float(sum(rhos))/float(len(rhos))))
 
+def _test_on_sentence_samples(args):
+    nonce = '___'
+    count = 0
+    batches = Samples(source=args.on, shuffle=args.shuffle)
+    total_num_batches = sum(1 for x in batches)
+    total_num_samples = sum(1 for x in [samp for batch in batches for samp in batch])
+    logger.info('Testing Nonce2Vec on the {} dataset containing '
+                '{} batches and {} samples'.format(args.on, total_num_batches,
+                                                     total_num_samples))
+    num_batch = 1
+    eval_success = 0
+    eval_win = 0
+    eval_avgfreqpart1 = []
+    eval_avgfreqpart2 = []
+    eval_avgrank = []
+    eval_avg_distance_between = []
+    eval_avgbaselineintrainedrank = []
+    eval_avg_distance_between_baseline_trained = []
+    eval_avgbaselinerank = []
+    eval_avg_distance_between_baselines = []
+    eval_avg_distance_within_term = []
+    eval_avg_distance_within_term_baseline = []
+    eval_avg_rank_within_term = []
+    eval_avg_rank_within_term_baseline = []
+    eval_avg_distance_to_background_trained = []
+    eval_avg_rank_to_background_trained = []
+    eval_avg_distance_to_background_baseline = []
+    eval_avg_rank_to_background_baseline = []
+    eval_avg_distance_to_background_within_term_trained = []
+    eval_avg_rank_to_background_within_term_trained = []
+    eval_avg_distance_to_background_within_term_baseline = []
+    eval_avg_rank_to_background_within_term_baseline = []
+    eval_avg_distance_nonsum_nns_to_baseline_within_term = []
+    
+    all_sum_vectors = []
+    #freqdict = futils.get_dictionary("nonce2vec/data/wikdictionary.txt")
+    #delete nonce symbol
+    #if '___' in freqdict:
+    #    del freqdict['___']
+    info = _load_informativeness_model(args)
+    for parts, term, probes in batches:
+        logger.info('-' * 30)
+        logger.info('Processing batch {}/{}'.format(num_batch,
+                                                    total_num_batches))
+        num_batch += 1
+        logger.info('samples = {}'.format(parts))
+        logger.info('term = {}'.format(term))
+        logger.info('probes = {}'.format(probes))
+        termvector = None
+        prev_section_vectors = {}
+        sum_baseline_vector = None
+        prev_sumbaseline_section_vectors = {}
+        num_part = 1
+        #prev_nns = None
+
+        eval_avgbaselinerank_interm = []
+        eval_avg_distance_between_baselines_interm = []
+        eval_avgrank_interm = []
+        eval_avg_distance_between_interm = []
+        eval_avg_distance_to_background_trained_interm = []
+        eval_avg_rank_to_background_trained_interm = []
+        eval_avg_distance_to_background_baseline_interm = []
+        eval_avg_rank_to_background_baseline_interm = [] 
+        eval_avg_distance_nonsum_nns_to_baseline_interm = []
+
+        for sample in parts:
+            model = _load_nonce2vec_model(args, info, nonce)
+            model.vocabulary.nonce = nonce
+            vocab_size = len(model.wv.vocab)
+            logger.info('vocab size = {}'.format(vocab_size))
+            if nonce not in model.wv.vocab:
+                logger.error('Nonce \'{}\' not in gensim.word2vec.model '
+                             'vocabulary'.format(nonce))
+                continue
+            logger.info('Processing sample {}/{}'.format(num_part,
+                                                    len(parts)))
+            model.build_vocab(parts[sample], update=True)
+            #at this point, nonce is sum baseline
+            logger.info('Sum baseline: 10 most similar words = {}'.format(
+            model.most_similar(nonce, topn=10)))
+            sum_baseline_vector = model.wv[nonce].copy()
+            all_sum_vectors.append(sum_baseline_vector)
+            
+            nns = model.most_similar(nonce, topn=10)
+            nndistances = [nn[1] for nn in nns]
+            eval_avg_distance_nonsum_nns_to_baseline_interm.extend(nndistances)
+            
+            #Compare two sum baselines
+
+            #Compare to earlier sample's sum baselines
+            if prev_sumbaseline_section_vectors:
+                for samplevector in prev_sumbaseline_section_vectors:
+                    nns = model.most_similar(positive=[prev_sumbaseline_section_vectors[samplevector]],topn=vocab_size+1)
+                    rank = _get_rank('___', nns)
+                    logger.info('Sample {} sum baseline term rank in NNs of sample {} sum baseline term: {} (distance {})'.format(samplevector, num_part, rank, nns[rank-1][1]))
+                    eval_avgbaselinerank.append(rank)
+                    eval_avgbaselinerank_interm.append(rank)
+                    eval_avg_distance_between_baselines.append(nns[rank-1][1])
+                    eval_avg_distance_between_baselines_interm.append(nns[rank-1][1])
+                    
+                eval_avg_distance_within_term_baseline.append(sum(eval_avg_distance_between_baselines_interm)/float(len(eval_avg_distance_between_baselines_interm)))
+                eval_avg_rank_within_term_baseline.append(sum(eval_avgbaselinerank_interm)/float(len(eval_avgbaselinerank_interm)))
+            
+            
+            prev_sumbaseline_section_vectors[sample] = sum_baseline_vector
+
+            #Train
+            if not args.sum_only:
+                model.train(parts[sample], total_examples=model.corpus_count,
+                            epochs=model.iter)
+
+            logger.info('10 most similar words = {}'.format(model.most_similar(nonce, topn=10)))
+            #Compare to sum baseline
+            nns = model.most_similar(positive=[sum_baseline_vector],topn=vocab_size+1)
+            rank = _get_rank('___', nns)
+            logger.info('Sum baseline term rank in NNs of learned term in sample nr {}: {} (distance {})'.format(num_part, rank, nns[rank-1][1]))
+            eval_avgbaselineintrainedrank.append(rank)
+            eval_avg_distance_between_baseline_trained.append(nns[rank-1][1])
+            
+            prev_nns = model.most_similar(nonce,topn=vocab_size+1)
+            
+            #compare trained vector to background space term vector
+            if term in model.wv.vocab:
+                #sum baseline
+                rank = _get_rank(term, nns)
+                eval_avg_distance_to_background_baseline.append(nns[rank-1][1])
+                eval_avg_rank_to_background_baseline.append(rank)
+            
+                eval_avg_distance_to_background_baseline_interm.append(nns[rank-1][1])
+                eval_avg_rank_to_background_baseline_interm.append(rank)
+                
+                #trained
+                rank = _get_rank(term, prev_nns)
+                eval_avg_distance_to_background_trained.append(prev_nns[rank-1][1])
+                eval_avg_rank_to_background_trained.append(rank)
+            
+                eval_avg_distance_to_background_trained_interm.append(prev_nns[rank-1][1])
+                eval_avg_rank_to_background_trained_interm.append(rank)
+ 
+            
+            termvector = model.wv[nonce].copy()
+
+            #logger.info('@@@similarity between "later" and "is": {}'.format(model.similarity('later', 'is')))
+            
+            #latervector = model.wv["later"].copy()
+            #isvector = model.wv["is"].copy()
+        #for part in termvectors:
+            #model.wv.add("{}_p{}".format(term, part), termvectors[part])
+        
+            #Evaluation of learned vector compared to previous
+            if prev_section_vectors and prev_sumbaseline_section_vectors:
+                for samplevector in prev_section_vectors:
+                    average = 0
+                    logger.info('Attempting to see if part {} nonce appears in part {} nonce nearest neighbours:'.format(samplevector, num_part))
+                    nns = model.most_similar(positive=[prev_section_vectors[samplevector]],topn=vocab_size+1)
+                    logger.info('10 most similar words to part {} term vector: {}'.format(samplevector, nns[:10]))
+                    rank = _get_rank('___', nns)
+                    if rank <= 10:
+                        eval_success += 1
+                        if rank == 1:
+                            eval_win += 1
+                    eval_avgrank.append(rank)
+                    eval_avgrank_interm.append(rank)
+                    eval_avg_distance_between.append(nns[rank-1][1])
+                    eval_avg_distance_between_interm.append(nns[rank-1][1])
+                    logger.info('Part {} term rank in NNs of part {} term: {} (distance {})'.format(samplevector, num_part,rank, nns[rank-1][1]))
+                    #Compute average logfreq of NNs part 1 and part 2
+                    #nnfreqs = {}
+                    #nnfreqs2 = {}
+                    #for term, distance in prev_nns:
+                    #    if term in freqdict:
+                    #        nnfreqs[term] = math.log10(int(freqdict[term]))
+                    #    else:
+                    #        print("Term not in freqdict: " + term)
+                    #if not len(nnfreqs):
+                    #    average = 0
+                    #else:
+                    #    average = sum(nnfreqs.values()) / len(nnfreqs)
+                    #eval_avgfreqpart1.append(average)
+                    #logger.info('Average log frequency of nearest neighbours part 1: {}'.format(average))
+                    #for term, distance in nns[:10]:
+                    #    if term in freqdict:
+                    #        nnfreqs2[term] = math.log10(int(freqdict[term]))
+                    #if not len(nnfreqs2):
+                    #    average = 0
+                    #else:
+                    #    average = sum(nnfreqs2.values()) / len(nnfreqs2)
+                    #eval_avgfreqpart2.append(average)
+                    #logger.info('Average log frequency of nearest neighbours part 2: {}'.format(average))
+                    
+            prev_section_vectors[sample] = termvector
+            num_part += 1
+            
+            
+        #print summary stats of term:
+        if prev_section_vectors and prev_sumbaseline_section_vectors:
+            logger.info('Average rank of term "{}" samples in each others NNs: {}. Average distance: {}'.format(term, sum(eval_avgrank_interm)/float(len(eval_avgrank_interm)), sum(eval_avg_distance_between_interm)/float(len(eval_avg_distance_between_interm))))
+            logger.info('Average rank of sum baseline term "{}" in each others NNs: {}. Average distance: {}'.format(term, sum(eval_avgbaselinerank_interm)/float(len(eval_avgbaselinerank_interm)), sum(eval_avg_distance_between_baselines_interm)/float(len(eval_avg_distance_between_baselines_interm))))
+            #logger.info('Part 1 term was the 1st nearest neighbour {} times, and was among the top 10 nearest neighbours {} times, out of {} terms'.format(eval_win, eval_success, total_num_batches))
+            #logger.info('Part 1 baseline term was the 1st nearest neighbour of part 2 baseline {} times, and was among the top 10 nearest neighbours of baseline {} times, out of {} terms'.format(baseline_eval_win, baseline_eval_succes, total_num_batches))
+            
+            eval_avg_distance_within_term.append(sum(eval_avg_distance_between_interm)/float(len(eval_avg_distance_between_interm)))
+            eval_avg_rank_within_term.append(sum(eval_avgrank_interm)/float(len(eval_avgrank_interm)))
+            
+        if eval_avg_distance_nonsum_nns_to_baseline_interm:
+            logger.info('Average distance of term "{}" NNs: {}. Average distance of term "{}" summed vectors: {}'.format(term, sum(eval_avg_distance_nonsum_nns_to_baseline_interm)/float(len(eval_avg_distance_nonsum_nns_to_baseline_interm)) , term, sum(eval_avg_distance_between_baselines_interm)/float(len(eval_avg_distance_between_baselines_interm))))
+            
+            eval_avg_distance_nonsum_nns_to_baseline_within_term.append(sum(eval_avg_distance_nonsum_nns_to_baseline_interm)/float(len(eval_avg_distance_nonsum_nns_to_baseline_interm)))
+            
+        if eval_avg_distance_to_background_trained_interm and eval_avg_rank_to_background_trained_interm:
+            logger.info('Average rank of background term "{}" in trained term from samples: {}. Average distance: {}'.format(term, sum(eval_avg_rank_to_background_trained_interm)/float(len(eval_avg_rank_to_background_trained_interm)), sum(eval_avg_distance_to_background_trained_interm)/float(len(eval_avg_distance_to_background_trained_interm))))
+            
+            eval_avg_distance_to_background_within_term_trained.append(sum(eval_avg_distance_to_background_trained_interm)/float(len(eval_avg_distance_to_background_trained_interm)))
+            eval_avg_rank_to_background_within_term_trained.append(sum(eval_avg_rank_to_background_trained_interm)/float(len(eval_avg_rank_to_background_trained_interm)))
+            
+        if eval_avg_distance_to_background_baseline_interm and eval_avg_rank_to_background_baseline_interm:
+            logger.info('Average rank of background term "{}" in sum baseline term from samples: {}. Average distance: {}'.format(term, sum(eval_avg_rank_to_background_baseline_interm)/float(len(eval_avg_rank_to_background_baseline_interm)), sum(eval_avg_distance_to_background_baseline_interm)/float(len(eval_avg_distance_to_background_baseline_interm))))
+            
+            eval_avg_distance_to_background_within_term_baseline.append(sum(eval_avg_distance_to_background_baseline_interm)/float(len(eval_avg_distance_to_background_baseline_interm)))
+            eval_avg_rank_to_background_within_term_baseline.append(sum(eval_avg_rank_to_background_baseline_interm)/float(len(eval_avg_rank_to_background_baseline_interm)))
+            
+        else:
+            logger.info('Term {} not in background space, skipping background comparison'.format(term))
+            
+            
+        count += 1
+        
+    #compute baseline win, succes:
+    baseline_eval_win = 0
+    baseline_eval_succes = 0
+    for n in eval_avgbaselinerank:
+        if n == 1:
+            baseline_eval_win += 1
+            baseline_eval_succes += 1
+        elif n <= 10:
+            baseline_eval_succes += 1
+            
+    #average baseline distances
+    avg_distance_to_all = []
+    std_distance_to_all = []
+    avg_distance_to_sum = []
+    for vector in all_sum_vectors:
+        distance_to_all = model.wv.distances(vector)
+        std_distance_to_all.append(np.std(distance_to_all))
+        avg_distance_to_all.append(sum(distance_to_all)/float(len(distance_to_all)))
+        for vector2 in all_sum_vectors:
+            avg_distance = []
+            #if not (vector == vector2).all():
+            avg_distance.append(dot(matutils.unitvec(vector), matutils.unitvec(vector2)))
+        avg_distance_to_sum.append(sum(avg_distance)/float(len(avg_distance)))
+                            
+    
+    #print summary stats:
+    logger.info('Average rank among vectors trained from term samples: {} (stdev {}). Average distance: {}. (Stdev {}, range {}--{})'.format(sum(eval_avgrank)/float(len(eval_avgrank)), statistics.stdev(eval_avgrank), sum(eval_avg_distance_between)/float(len(eval_avg_distance_between)), statistics.stdev(eval_avg_distance_between), min(eval_avg_distance_between), max(eval_avg_distance_between)))
+    logger.info('Average rank among summed vectors from term samples: {} (stdev {}). Average distance: {} (Stdev {}, range {}--{})'.format(sum(eval_avgbaselinerank)/float(len(eval_avgbaselinerank)), statistics.stdev(eval_avgbaselinerank), sum(eval_avg_distance_between_baselines)/float(len(eval_avg_distance_between_baselines)), statistics.stdev(eval_avg_distance_between_baselines), min(eval_avg_distance_between_baselines), max(eval_avg_distance_between_baselines)))
+    logger.info('Average rank among vectors trained from term samples within terms: {} (stdev {}). Average distance within terms: {} (Stdev {}, range {}--{})'.format(sum(eval_avg_rank_within_term)/float(len(eval_avg_rank_within_term)), statistics.stdev(eval_avg_rank_within_term), sum(eval_avg_distance_within_term)/float(len(eval_avg_distance_within_term)), statistics.stdev(eval_avg_distance_within_term), min(eval_avg_distance_within_term), max(eval_avg_distance_within_term)))
+    logger.info('Average rank among summed vectors from term samples within terms: {} (stdev {}). Average distance within terms: {} (Stdev {}, range {}--{})'.format(sum(eval_avg_rank_within_term_baseline)/float(len(eval_avg_rank_within_term_baseline)), statistics.stdev(eval_avg_rank_within_term_baseline), sum(eval_avg_distance_within_term_baseline)/float(len(eval_avg_distance_within_term_baseline)), statistics.stdev(eval_avg_distance_within_term_baseline), min(eval_avg_distance_within_term_baseline), max(eval_avg_distance_within_term_baseline)))
+    logger.info('Average rank of sum baseline term vector compared to trained term vector: {}. Average distance: {}'.format(sum(eval_avgbaselineintrainedrank)/float(len(eval_avgbaselineintrainedrank)), sum(eval_avg_distance_between_baseline_trained)/float(len(eval_avg_distance_between_baseline_trained))))
+    logger.info('Part 1 term was the 1st nearest neighbour {} times, and was among the top 10 nearest neighbours {} times, out of {} terms'.format(eval_win, eval_success, total_num_batches))
+    logger.info('Part 1 baseline term was the 1st nearest neighbour of part 2 baseline {} times, and was among the top 10 nearest neighbours of baseline {} times, out of {} terms'.format(baseline_eval_win, baseline_eval_succes, total_num_batches))
+    #logger.info('Overall average nearest neighbour log freq was {} for the 1st part, {} for the 2nd part and {} overall'.format(sum(eval_avgfreqpart1)/float(len(eval_avgfreqpart1)), sum(eval_avgfreqpart2)/float(len(eval_avgfreqpart2)), sum(eval_avgfreqpart1 + eval_avgfreqpart2)/float(len(eval_avgfreqpart1 + eval_avgfreqpart2))))
+    logger.info('The average distance of summed vectors to other summed vectors was {} (std {}) while the average distance of summed vectors to the general vocabulary was {} (std {})'.format(sum(avg_distance_to_sum)/float(len(avg_distance_to_sum)), np.std(avg_distance_to_sum), sum(avg_distance_to_all)/float(len(avg_distance_to_all)), np.std(avg_distance_to_all)))
+    logger.info('Stdevs of the distance of each sum vector to all vocab: {}'.format(std_distance_to_all))
+    if eval_avg_rank_to_background_trained:
+        logger.info('Average rank of background term in NNs of trained term: {} (stdev {}). Average distance: {}. (Stdev {}, range {}--{})'.format(sum(eval_avg_rank_to_background_trained)/float(len(eval_avg_rank_to_background_trained)), statistics.stdev(eval_avg_rank_to_background_trained), sum(eval_avg_distance_to_background_trained)/float(len(eval_avg_distance_to_background_trained)), statistics.stdev(eval_avg_distance_to_background_trained), min(eval_avg_distance_to_background_trained), max(eval_avg_distance_to_background_trained)))
+        logger.info('Average rank of background term in NNs of sum baseline term: {} (stdev {}). Average distance: {} (Stdev {}, range {}--{})'.format(sum(eval_avg_rank_to_background_baseline)/float(len(eval_avg_rank_to_background_baseline)), statistics.stdev(eval_avg_rank_to_background_baseline), sum(eval_avg_distance_to_background_baseline)/float(len(eval_avg_distance_to_background_baseline)), statistics.stdev(eval_avg_distance_to_background_baseline), min(eval_avg_distance_to_background_baseline), max(eval_avg_distance_to_background_baseline)))
+        logger.info('Average rank of background term in NNs of trained term within terms: {} (stdev {}). Average distance within terms: {} (Stdev {}, range {}--{})'.format(sum(eval_avg_rank_to_background_within_term_trained)/float(len(eval_avg_rank_to_background_within_term_trained)), statistics.stdev(eval_avg_rank_to_background_within_term_trained), sum(eval_avg_distance_to_background_within_term_trained)/float(len(eval_avg_distance_to_background_within_term_trained)), statistics.stdev(eval_avg_distance_to_background_within_term_trained), min(eval_avg_distance_to_background_within_term_trained), max(eval_avg_distance_to_background_within_term_trained)))
+        logger.info('Average rank of background term in NNs of sum baseline term within terms: {} (stdev {}). Average distance within terms: {} (Stdev {}, range {}--{})'.format(sum(eval_avg_rank_to_background_within_term_baseline)/float(len(eval_avg_rank_to_background_within_term_baseline)), statistics.stdev(eval_avg_rank_to_background_within_term_baseline), sum(eval_avg_distance_to_background_within_term_baseline)/float(len(eval_avg_distance_to_background_within_term_baseline)), statistics.stdev(eval_avg_distance_to_background_within_term_baseline), min(eval_avg_distance_to_background_within_term_baseline), max(eval_avg_distance_to_background_within_term_baseline)))
+    else:
+        logger.info('Terms not in background space, skipping background comparison'.format(term))
+        
+    if eval_avg_distance_nonsum_nns_to_baseline_within_term:
+        logger.info('Average distance of term NNs: {} (Stdev {}, range {}--{}). Average distance of term summed vectors: {}'.format(sum(eval_avg_distance_nonsum_nns_to_baseline_within_term)/float(len(eval_avg_distance_nonsum_nns_to_baseline_within_term)), statistics.stdev(eval_avg_distance_nonsum_nns_to_baseline_within_term), min(eval_avg_distance_nonsum_nns_to_baseline_within_term), max(eval_avg_distance_nonsum_nns_to_baseline_within_term), sum(eval_avg_distance_within_term_baseline)/float(len(eval_avg_distance_within_term_baseline))))
+        #possibly do significance testing here
+    
+
 
 def _display_stats(ranks, ctx_ents):
     logger.info('-'*30)
@@ -263,6 +544,7 @@ def _test_on_definitions(args):  # pylint:disable=R0914
         _display_density_stats(ranks, sum_10, sum_25, sum_50)
 
 
+
 def _get_men_pairs_and_sim(men_dataset):
     pairs = []
     humans = []
@@ -344,6 +626,10 @@ def _train(args):
 def _test(args):
     if args.on == 'def':
         _test_on_definitions(args)
+    elif args.on == 'quine1960':
+        _test_on_sentence_samples(args)
+    elif args.on == 'wiki-rnd':
+        _test_on_sentence_samples(args)
     else:
         _test_on_chimeras(args)
 
@@ -421,7 +707,7 @@ def main():
         help='test nonce2vec')
     parser_test.set_defaults(func=_test)
     parser_test.add_argument('--on', required=True,
-                             choices=['def', 'l2', 'l4', 'l6'],
+                             choices=['def', 'l2', 'l4', 'l6', 'quine1960', 'wiki-rnd'],
                              help='type of test data to be used')
     parser_test.add_argument('--model', required=True,
                              dest='background',

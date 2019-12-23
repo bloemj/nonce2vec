@@ -25,3 +25,6 @@ RELEASE.md
 XP.md
 SRW-XP-cmd.md
 SRW-XP-results.md
+nonce2vec/models
+nonce2vec/resources/1960*
+/*.txt
