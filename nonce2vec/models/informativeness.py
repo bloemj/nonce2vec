@@ -64,13 +64,18 @@ class Informativeness():
     def _get_prob_distribution(self, context):
         words_and_probs = self._model.predict_output_word(
             context, topn=len(self._model.wv.vocab))
-        return [item[1] for item in words_and_probs]
+        if words_and_probs:     #do not try if none of the context words are in the informativeness model vocabulary
+            return [item[1] for item in words_and_probs]
+        else:
+            return 0
 
     @lru_cache(maxsize=10)
     def _get_context_entropy(self, context):
         if not context:
             return 0
         probs = self._get_prob_distribution(context)
+        if not probs:
+            return 0
         shannon_entropy = scipy.stats.entropy(probs)
         ctx_ent = 1 - (shannon_entropy / np.log(len(probs)))
         return ctx_ent
