@@ -94,7 +94,7 @@ n2vconsistency train \
 
 ### Creating the evaluation sets
 
-The evaluation sets are included in this release in [resources/](resources/).
+The evaluation sets are included in this release in [nonce2vec/resources/](nonce2vec/resources/).
 The Definitional evaluation and tuning set can be regenerated (with a different random sampling of terms) using the sampling script [preprocessing/sample-wiki-n2vevalset.py](preprocessing/sample-wiki-n2vevalset.py).
 
 The New Latin Mathematical Methods evaluation set (shown in Table 4) was manually compiled. The provenance of the included text passages can be found in [data/](data/).
