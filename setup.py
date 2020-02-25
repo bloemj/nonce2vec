@@ -10,7 +10,7 @@ with open('README.md', 'r') as fh:
     long_description = fh.read()
 
 setup(
-    name='nonce2vecconsistency',
+    name='nonce2vec',
     description='A python module to generate word embeddings from tiny data',
     author=' Alexandre Kabbach and Aurélie Herbelot',
     author_email='akb@3azouz.net',

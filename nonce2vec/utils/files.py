@@ -19,10 +19,12 @@ DATASETS = {
                        'resources', 'chimeras.dataset.l4.tokenised.test.txt'),
     'l6': os.path.join(os.path.dirname(os.path.dirname(__file__)),
                        'resources', 'chimeras.dataset.l6.tokenised.test.txt'),
-    'quine1960': os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                       'resources', '1960_index_terms_randsplit_test_sentences_alpha_twochar.txt'),
-    'wiki-rnd': os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                       'resources', 'nonce_test_sampledsentences1.txt')
+    'latdeftune': os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                        'resources', 'latin.definitions.700.train'),
+    'latdeftest': os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                        'resources', 'latin.definitions.300.test'),
+    'mm18thtest': os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                       'resources', 'mm18thtest.txt')
 }
 
 
@@ -47,7 +49,7 @@ class Samples():  # pylint:disable=R0903
     def __init__(self, source, shuffle, input_data=None):
         """Initialize instance."""
         logger.info('Loading {} samples...'.format(source))
-        if source not in ['wiki', 'men', 'def', 'l2', 'l4', 'l6', 'quine1960', 'wiki-rnd']:
+        if source not in ['wiki', 'men', 'def', 'l2', 'l4', 'l6', 'latdeftest', 'latdeftune', 'mm18thtest']:
             raise Exception('Invalid source parameter \'{}\''.format(source))
         if source == 'wiki' and not input_data:
             raise Exception('You need to specify the input data when parsing '
@@ -70,7 +72,7 @@ class Samples():  # pylint:disable=R0903
                 yield (items[0], items[1]), float(items[2])
 
     def _iterate_over_definitions(self):
-        with open(DATASETS['def'], 'rt', encoding='utf-8') as input_stream:
+        with open(DATASETS[self._source], 'rt', encoding='utf-8') as input_stream:
             if self._shuffle:
                 logger.info('Iterating over test set in shuffled order')
                 input_stream = list(input_stream)
@@ -124,8 +126,10 @@ class Samples():  # pylint:disable=R0903
             return self._iterate_over_men()
         if self._source == 'def':
             return self._iterate_over_definitions()
-        if self._source == 'quine1960':
-            return self._iterate_over_sentence_samples()
-        if self._source == 'wiki-rnd':
+        if self._source == 'latdeftune':
+            return self._iterate_over_definitions()
+        if self._source == 'latdeftest':
+            return self._iterate_over_definitions()
+        if self._source == 'mm18thtest':
             return self._iterate_over_sentence_samples()
         return self._iterate_over_chimeras()

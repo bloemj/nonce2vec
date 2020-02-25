@@ -167,6 +167,7 @@ def _test_on_chimeras(args):  # pylint:disable=R0914
 def _test_on_sentence_samples(args):
     nonce = '___'
     count = 0
+    oov = 0
     batches = Samples(source=args.on, shuffle=args.shuffle)
     total_num_batches = sum(1 for x in batches)
     total_num_samples = sum(1 for x in [samp for batch in batches for samp in batch])
@@ -203,7 +204,6 @@ def _test_on_sentence_samples(args):
     #delete nonce symbol
     #if '___' in freqdict:
     #    del freqdict['___']
-    info = _load_informativeness_model(args)
     for parts, term, probes in batches:
         logger.info('-' * 30)
         logger.info('Processing batch {}/{}'.format(num_batch,
@@ -228,16 +228,19 @@ def _test_on_sentence_samples(args):
         eval_avg_distance_to_background_baseline_interm = []
         eval_avg_rank_to_background_baseline_interm = [] 
         eval_avg_distance_nonsum_nns_to_baseline_interm = []
+        oovcheck = 0
 
         for sample in parts:
+            info = _load_informativeness_model(args)
             model = _load_nonce2vec_model(args, info, nonce)
             model.vocabulary.nonce = nonce
             vocab_size = len(model.wv.vocab)
             logger.info('vocab size = {}'.format(vocab_size))
-            if nonce not in model.wv.vocab:
-                logger.error('Nonce \'{}\' not in gensim.word2vec.model '
-                             'vocabulary'.format(nonce))
-                continue
+            if term not in model.wv.vocab:
+                logger.info('Nonce \'{}\' not in gensim.word2vec.model '
+                             'vocabulary'.format(term))
+                oovcheck = 1
+                #continue
             logger.info('Processing sample {}/{}'.format(num_part,
                                                     len(parts)))
             model.build_vocab(parts[sample], update=True)
@@ -357,7 +360,8 @@ def _test_on_sentence_samples(args):
             prev_section_vectors[sample] = termvector
             num_part += 1
             
-            
+        if oovcheck:
+            oov = oov + 1
         #print summary stats of term:
         if prev_section_vectors and prev_sumbaseline_section_vectors:
             logger.info('Average rank of term "{}" samples in each others NNs: {}. Average distance: {}'.format(term, sum(eval_avgrank_interm)/float(len(eval_avgrank_interm)), sum(eval_avg_distance_between_interm)/float(len(eval_avg_distance_between_interm))))
@@ -434,6 +438,7 @@ def _test_on_sentence_samples(args):
         logger.info('Average rank of background term in NNs of sum baseline term within terms: {} (stdev {}). Average distance within terms: {} (Stdev {}, range {}--{})'.format(sum(eval_avg_rank_to_background_within_term_baseline)/float(len(eval_avg_rank_to_background_within_term_baseline)), statistics.stdev(eval_avg_rank_to_background_within_term_baseline), sum(eval_avg_distance_to_background_within_term_baseline)/float(len(eval_avg_distance_to_background_within_term_baseline)), statistics.stdev(eval_avg_distance_to_background_within_term_baseline), min(eval_avg_distance_to_background_within_term_baseline), max(eval_avg_distance_to_background_within_term_baseline)))
     else:
         logger.info('Terms not in background space, skipping background comparison'.format(term))
+    logger.info('{} terms were not in the background space vocabulary and evaluation was skipped'.format(oov))
         
     if eval_avg_distance_nonsum_nns_to_baseline_within_term:
         logger.info('Average distance of term NNs: {} (Stdev {}, range {}--{}). Average distance of term summed vectors: {}'.format(sum(eval_avg_distance_nonsum_nns_to_baseline_within_term)/float(len(eval_avg_distance_nonsum_nns_to_baseline_within_term)), statistics.stdev(eval_avg_distance_nonsum_nns_to_baseline_within_term), min(eval_avg_distance_nonsum_nns_to_baseline_within_term), max(eval_avg_distance_nonsum_nns_to_baseline_within_term), sum(eval_avg_distance_within_term_baseline)/float(len(eval_avg_distance_within_term_baseline))))
@@ -491,7 +496,7 @@ def _compute_average_sim(sims):
     return sim_sum / len(sims)
 
 
-def _test_on_definitions(args):  # pylint:disable=R0914
+def _test_on_definitions(args, source):  # pylint:disable=R0914
     """Test the definitional nonces."""
     ranks = []
     sum_10 = []
@@ -499,7 +504,7 @@ def _test_on_definitions(args):  # pylint:disable=R0914
     sum_50 = []
     relative_ranks = 0.0
     count = 0
-    samples = Samples(source='def', shuffle=args.shuffle)
+    samples = Samples(source, shuffle=args.shuffle)
     total_num_sent = sum(1 for line in samples)
     logger.info('Testing Nonce2Vec on the nonces dataset containing '
                 '{} sentences'.format(total_num_sent))
@@ -625,10 +630,12 @@ def _train(args):
 
 def _test(args):
     if args.on == 'def':
-        _test_on_definitions(args)
-    elif args.on == 'quine1960':
-        _test_on_sentence_samples(args)
-    elif args.on == 'wiki-rnd':
+        _test_on_definitions(args, 'def')
+    elif args.on == 'latdeftune':
+        _test_on_definitions(args, 'latdeftune')
+    elif args.on == 'latdeftest':
+        _test_on_definitions(args, 'latdeftest')
+    elif args.on == 'mm18thtest':
         _test_on_sentence_samples(args)
     else:
         _test_on_chimeras(args)
@@ -707,7 +714,7 @@ def main():
         help='test nonce2vec')
     parser_test.set_defaults(func=_test)
     parser_test.add_argument('--on', required=True,
-                             choices=['def', 'l2', 'l4', 'l6', 'quine1960', 'wiki-rnd'],
+                             choices=['def', 'l2', 'l4', 'l6', 'latdeftune', 'latdeftest', 'mm18thtest'],
                              help='type of test data to be used')
     parser_test.add_argument('--model', required=True,
                              dest='background',
