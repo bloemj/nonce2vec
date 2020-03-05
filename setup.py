@@ -29,7 +29,7 @@ setup(
     include_package_data=True,
     entry_points={
         'console_scripts': [
-            'n2vconsistency = nonce2vec.main:main'
+            'n2v = nonce2vec.main:main'
         ],
     },
     install_requires=['pyyaml>=4.2b1', 'gensim==3.4.0', 'numpy==1.15.4',
