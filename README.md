@@ -6,7 +6,7 @@
 
 Welcome to Nonce2Vec!
 
-This branch of the repository accompanies the Bloem et al. (2020) manuscript [*Distributional Semantics for New Latin*].
+This branch of the repository accompanies the Bloem et al. (2020) manuscript [*Distributional Semantics for Neo-Latin*].
 
 **If you are looking for the Kabbach et al (2019) version of Nonce2Vec with English test sets, check out the [main Nonce2Vec repository](https://github.com/minimalparts/nonce2vec).**
 
