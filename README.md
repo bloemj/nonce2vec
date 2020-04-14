@@ -41,7 +41,22 @@ python3 setup.py install
 ```
 
 ## Pre-requisites
-To run Nonce2Vec on Latin data, you need a gensim Word2Vec model trained on Latin data.
+To run Nonce2Vec on Latin data, you need a gensim Word2Vec model trained on Latin data. As discussed in the paper, we have trained models with various parameter settings. You can download these models below, following the overview in Table 2 of the paper:  
+bamman-c50-d400: https://uvaauas.figshare.com/ndownloader/files/22300356  
+bamman-c50-d100: https://uvaauas.figshare.com/ndownloader/files/22300362  
+lattextlib-c50-d400: https://uvaauas.figshare.com/ndownloader/files/22300236  
+lattextlib-c50-d100: https://uvaauas.figshare.com/ndownloader/files/22300239  
+lattextlib-c20-d400: https://uvaauas.figshare.com/ndownloader/files/22300248  
+lattextlib-c20-d100: https://uvaauas.figshare.com/ndownloader/files/22300251  
+vicipaedia-c50-d400: https://uvaauas.figshare.com/ndownloader/files/22300212  
+vicipaedia-c50-d100: https://uvaauas.figshare.com/ndownloader/files/22300215  
+vicipaedia-c20-d400: https://uvaauas.figshare.com/ndownloader/files/22300218  
+vicipaedia-c20-d100: https://uvaauas.figshare.com/ndownloader/files/22300221  
+treebanks-c50-d400: https://uvaauas.figshare.com/ndownloader/files/22300224  
+treebanks-c50-d100: https://uvaauas.figshare.com/ndownloader/files/22300227  
+treebanks-c5-d400: https://uvaauas.figshare.com/ndownloader/files/22300230  
+treebanks-c5-d100: https://uvaauas.figshare.com/ndownloader/files/22300233
+
 <!---(a skipgram model and a cbow model to compute informativeness-metrics). You can download the skipgram model from:
 ```bash
 wget http://129.194.21.122/~kabbach/gensim.w2v.skipgram.model.7z
@@ -50,16 +65,19 @@ and the cbow model from:
 ```sh
 wget http://129.194.21.122/~kabbach/gensim.w2v.cbow.model.7z
 ```--->
-You can generate them yourself using the instructions below.
+Alternatively, you can generate them yourself using the instructions below.
 
 ### Generating the Vicipaedia background model
 <!---You can download our English Wikipedia dump of January 2019 here:
 ```bash
 wget http://129.194.21.122/~kabbach/enwiki.20190120.7z
 ```--->
-A tokenized-one-sentence-per-line dump of Wikipedia, for Latin or any other language, can be generated using [WiToKit](https://github.com/akb89/witokit).
+A tokenized-one-sentence-per-line dump of Wikipedia, for Latin or any other language, can be generated using [WiToKit](https://github.com/akb89/witokit). You can download our Vicipaedia dump of February 3rd, 2020 here:  
+```bash
+wget https://uvaauas.figshare.com/ndownloader/files/22300176
+```
 
-Once you have a Vicipaedia txt dump, you can generate a gensim Word2Vec skipgram model via:
+Once you have a Vicipaedia txt dump, you can generate a gensim Word2Vec skipgram model via:  
 ```bash
 n2v train \
   --data /absolute/path/to/vicipaedia/tokenized/text/dump \
@@ -167,11 +185,11 @@ This performs a consistency evaluation using the code of the Bloem et al. (2019)
 
 ## Background models for the New Latin consistency evaluation
 
-As shown in Table 2, we compare the use of background models trained over different Latin corpora. The procedure to create the Vicipaedia model is described above. As for the other models:
+As shown in Table 2, we compare the use of background models trained over different Latin corpora. The links to download our models can be found above, and the procedure to create the Vicipaedia model is described above. As for the other models:
 
 ### Bamman corpus
 
-The Bamman corpus is [described here](https://www.cs.cmu.edu/~dbamman/latin.html). We do not use the pre-trained word embeddings, as they are not in a format that can be trained further. We downloaded [the plain-text version](https://docs.google.com/uc?id=0B5pGKi0iCsnbZEdHZ3N6d216am8&export=download) and tokenized it with [Ucto](https://languagemachines.github.io/ucto/) as described in the paper.
+The Bamman corpus is [described here](https://www.cs.cmu.edu/~dbamman/latin.html). We do not use the pre-trained word embeddings, as they are not in a format that can be trained further. We downloaded [the plain-text version](https://docs.google.com/uc?id=0B5pGKi0iCsnbZEdHZ3N6d216am8&export=download) and tokenized it with [Ucto](https://languagemachines.github.io/ucto/) as described in the paper. The resulting text file can be downloaded here: https://uvaauas.figshare.com/ndownloader/files/22300173
 
 Next, in the same way as for the Wikipedia texts, we generate a gensim Word2Vec skipgram model via:
 ```bash
@@ -191,7 +209,7 @@ n2v train \
 The specified parameters are the Nonce2Vec defaults and not tuned for small data, as this dataset is much larger even than the English Wikipedia dump used by Herbelot & Baroni (2017). The min-count and size parameters can be varied to obtain the different experimental conditions shown in Table 2.
 
 ### Latin Text Library corpus
-We used the [version of the Latin Text Library provided by the Classical Languages Toolkit in plain-text format](https://github.com/cltk/latin_text_latin_library). We tokenized it with Polyglot using the the script [preprocessing/tokeniser_polyglot_latin.py](preprocessing/tokeniser_polyglot_latin.py) and [removed punctuation](preprocessing/alnum_latin.py).
+We used the [version of the Latin Text Library provided by the Classical Languages Toolkit in plain-text format](https://github.com/cltk/latin_text_latin_library). We tokenized it with Polyglot using the the script [preprocessing/tokeniser_polyglot_latin.py](preprocessing/tokeniser_polyglot_latin.py) and [removed punctuation](preprocessing/alnum_latin.py). The resulting text file can be downloaded here: https://uvaauas.figshare.com/ndownloader/files/22300179
 
 Next, in the same way as for the Wikipedia texts, we generate a gensim Word2Vec skipgram model via:
 ```bash
@@ -211,7 +229,7 @@ n2v train \
 The specified parameters are the best-performing ones from our Vicipaedia Definitional evaluation in the paper, as this dataset is of a comparable size to Vicipaedia. The min-count and size parameters can be varied to obtain the different experimental conditions in Table 2.
 
 ### Treebank corpora
-This corpus is a concatenation of the Index Thomisticus, Perseus, and PROIEL treebanks, all collected in the context of the Universal Dependencies project. We used the CoNLLU format files from the UD Latin [Index Thomisticus](https://github.com/UniversalDependencies/UD_Latin-ITTB), [Perseus](https://github.com/UniversalDependencies/UD_Latin-Perseus) and [PROIEL](https://github.com/UniversalDependencies/UD_Latin-PROIEL) repositores, and extracted from these files all the words in the second column (unlemmatized tokens).
+This corpus is a concatenation of the Index Thomisticus, Perseus, and PROIEL treebanks, all collected in the context of the Universal Dependencies project. We used the CoNLLU format files from the UD Latin [Index Thomisticus](https://github.com/UniversalDependencies/UD_Latin-ITTB), [Perseus](https://github.com/UniversalDependencies/UD_Latin-Perseus) and [PROIEL](https://github.com/UniversalDependencies/UD_Latin-PROIEL) repositores, and extracted from these files all the words in the second column (unlemmatized tokens). The resulting text file can be downloaded here: https://uvaauas.figshare.com/ndownloader/files/22300182
 
 Next, in the same way as for the Wikipedia texts, we generate a gensim Word2Vec skipgram model via:
 ```bash
