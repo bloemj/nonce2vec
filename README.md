@@ -29,7 +29,7 @@ If you use this code, please cite:
 
 **Abstract**
 
-**
+We address the problem of creating and evaluating quality Neo-Latin word embeddings for the purpose of philosophical research, adapting the Nonce2Vec tool to learn embeddings from Neo-Latin sentences. This distributional semantic modeling tool can learn from tiny data incrementally, using a larger background corpus for initialization. We conduct two evaluation tasks: definitional learning of Latin Wikipedia terms, and learning consistent embeddings from 18th century Neo-Latin sentences pertaining to the concept of *mathematical method*. Our results show that consistent Neo-Latin word embeddings can be learned from this type of data. While our evaluation results are promising, they do not reveal to what extent the learned models match domain expert knowledge of our Neo-Latin texts. Therefore, we propose an additional evaluation method, grounded in expert-annotated data, that would assess whether learned representations are conceptually sound in relation to the domain of study.
 
 ## A note on the code
 The code in this repository is largely the same as Nonce2Vec v2, but with additional code for evaluating consistency as demonstrated in the Bloem et al. (2019) RANLP paper [*Evaluating the Consistency of Word Embeddings from Small Data*](https://www.aclweb.org/anthology/R19-1016/). For more information on the software, visit the [main Nonce2Vec repository](https://github.com/minimalparts/nonce2vec).
